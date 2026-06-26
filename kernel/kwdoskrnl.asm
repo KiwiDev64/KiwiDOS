@@ -2,33 +2,26 @@ format binary as "img"
 use16
 org 0x7C00
 
-jmp short initdisk
+jmp initdisk
 nop
- 
-; FAT SIGNATURE 
-
-oem_name        db "MSWIN4.1"
-bytes_per_sec   dw 512
-sec_per_cluster db 1
-reserved_sec    dw 1
-fat_count       db 2
-root_entries    dw 224
-total_sectors   dw 2880
-media_type      db 0xF0 
-sec_per_fat     dw 9
-sec_per_track   dw 18
-head_count      dw 2
-hidden_sectors  dd 0
-large_sectors   dd 0
-
-drive_no        db 0
-nt_flags        db 0
-signature       db 0x29
-serial_no       dd 0x12345678
-volume_label    db "MY_DOS     "
-system_id       db "FAT12   "
-
 drive db 0
+dsker db "Disk Error", 0
+
+strdata:
+    cmd_hello db "user@kiwi>", 0
+    cmd_len dw 0
+    main_hello db "HELLO FROM KiwI-DOS(TRULY MONOLITHIC DISK OPERATING SYSTEM)", 10, 13, "WRITTEN ON FASM", 10,13, "ATTENTION: THIS OS RUNNING IN REAL-MODE, DISK OPERATIONS MAY BE DANGEROUS", 10,13, "NICE TIP: THINK BEFORE EXECUTION",10,13,10,13,0
+    version db 13,10,"KiwI-DOS v0.2", 13, 10, 13, 10, 0
+    helpstr db 13, 10, "help - show this", 13, 10, "cls - clear console", 13, 10, "ver - view DOS version", 13, 10, "reboot - reboot PC", 13, 10, "shutdown - turn off PC", 13, 10, 13, 10, 0
+
+cmds:
+    unknowncmd0 db 13,10,"Unknown command: ", 0
+    unknowncmd1 db 13,10, 13, 10, 'Type "help" for view command list', 0
+    help db "help", 0
+    clear db "cls", 0
+    osver db "ver", 0
+    reset db "reboot", 0
+    shtdwn db "shutdown", 0
 
 initdisk:
 
@@ -39,10 +32,9 @@ initdisk:
     mov ss, ax
     mov sp, 0x7C00
     sti
+
     mov [drive], dl
-
     mov ah, 02h
-
     mov al, 2
     mov ch, 0
     mov cl, 2
@@ -50,15 +42,19 @@ initdisk:
     mov bx, 0x7E00
     int 13h
     
+    mov si, dsker
+    mov di, 10
     jc disk_error
     jmp 0:initkrnl
 
 disk_error:
-    mov ax, 0x0E21
+    lodsb
+    mov ah, 0Eh
     int 10h
+    dec di
+    jnz disk_error
     hlt
-    
-dsker db "Disk Error", 0
+
 times 510-($-$$) db 0
 dw 0xAA55
 db ".KERNELINIT"
@@ -252,7 +248,6 @@ cmdhandler:
     int 10h
 
     ret
-
  .ver:
     mov si, version
     call print
@@ -277,25 +272,8 @@ cmdhandler:
     ret
 
 
-db 16 dup(0)
-db ".DATA"
-db 16 dup(0)
+virtual at $
+    cmd_buffer rb 80
+end virtual
 
-strdata:
-    cmd_hello db "user@kiwi>", 0
-    cmd_len dw 0
-    main_hello db "HELLO FROM KiwI-DOS(TRULY MONOLITHIC DISK OPERATING SYSTEM)", 10, 13, "WRITTEN ON FASM", 10,13, "ATTENTION: THIS OS RUNNING IN REAL-MODE, DISK OPERATIONS MAY BE DANGEROUS", 10,13, "NICE TIP: THINK BEFORE EXECUTION",10,13,10,13,0
-    version db 13,10,"KiwI-DOS v0.1", 13, 10, 13, 10, 0
-    helpstr db 13, 10, "help - show this", 13, 10, "cls - clear console", 13, 10, "ver - view DOS version", 13, 10, "reboot - reboot PC", 13, 10, "shutdown - turn off PC", 13, 10, 13, 10, 0
-    cmd_buffer db 80 dup(0)
-
-cmds:
-    unknowncmd0 db 13,10,"Unknown command: ", 0
-    unknowncmd1 db 13,10, 13, 10, 'Type "help" for view command list', 0
-    help db "help", 0
-    clear db "cls", 0
-    osver db "ver", 0
-    reset db "reboot", 0
-    shtdwn db "shutdown", 0
-
-times 1536-($-$$) db 0
+times 1024-($-$$) db 0
